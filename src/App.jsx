@@ -15,6 +15,18 @@ import Settings from './pages/Settings'
 import Help from './pages/Help'
 import TaskDetail from './components/TaskDetail'
 import EditTaskModal from './components/EditTaskModal'
+import NotFound from './pages/NotFound'
+import { Suspense, lazy } from 'react'
+
+// Initial loading component
+const InitialLoader = () => (
+  <div className="fixed inset-0 bg-white flex items-center justify-center">
+    <div className="flex flex-col items-center">
+      <div className="w-16 h-16 border-4 border-[#FF5C5C] border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-4 text-gray-600">Loading your tasks...</p>
+    </div>
+  </div>
+);
 
 function App() {
   return (
@@ -22,36 +34,41 @@ function App() {
       <AuthProvider>
         <TaskProvider>
           <Toaster position="top-right" />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            } />
-            <Route path="/register" element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            } />
+          <Suspense fallback={<InitialLoader />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              } />
+              <Route path="/register" element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              } />
 
-            {/* Protected Routes */}
-            <Route path="/" element={
-              <PrivateRoute>
-                <RootLayout />
-              </PrivateRoute>
-            }>
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="vital-task" element={<VitalTask />} />
-              <Route path="my-task" element={<MyTask />} />
-              <Route path="categories" element={<Categories />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="help" element={<Help />} />
-              <Route path="task/:taskId" element={<TaskDetail />} />
-              <Route path="task/:taskId/edit" element={<EditTaskModal />} />
-            </Route>
-          </Routes>
+              {/* Protected Routes */}
+              <Route path="/" element={
+                <PrivateRoute>
+                  <RootLayout />
+                </PrivateRoute>
+              }>
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="vital-task" element={<VitalTask />} />
+                <Route path="my-task" element={<MyTask />} />
+                <Route path="categories" element={<Categories />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="help" element={<Help />} />
+                <Route path="task/:taskId" element={<TaskDetail />} />
+                <Route path="task/:taskId/edit" element={<EditTaskModal />} />
+              </Route>
+
+              {/* 404 Route - Must be last */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </TaskProvider>
       </AuthProvider>
     </Router>

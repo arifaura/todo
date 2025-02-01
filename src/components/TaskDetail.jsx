@@ -1,16 +1,100 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTask } from '../context/TaskContext'
 import toast from 'react-hot-toast'
+import { LoadingSpinner } from './LoadingSpinner'
+
+const TaskDetailSkeleton = () => (
+  <div className="animate-pulse">
+    {/* Header Section */}
+    <div className="mb-8">
+      <div className="h-8 w-3/4 bg-gray-200 rounded-lg mb-3"></div>
+      <div className="flex gap-3 mb-4">
+        <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
+        <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
+      </div>
+      <div className="h-4 w-1/2 bg-gray-200 rounded mb-2"></div>
+      <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+    </div>
+
+    {/* Details Grid */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="space-y-4">
+        {/* Left Column */}
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 bg-gray-200 rounded"></div>
+            <div className="h-4 w-2/3 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="h-8 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column */}
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                <div className="h-4 flex-1 bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Action Buttons */}
+    <div className="flex gap-3">
+      <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
+      <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
+    </div>
+  </div>
+)
 
 const TaskDetail = () => {
   const { taskId } = useParams()
   const navigate = useNavigate()
   const { tasks, loading, deleteTask, updateTask } = useTask()
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [task, setTask] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTask, setEditedTask] = useState(null)
 
-  // Find task by Firebase document ID
-  const task = tasks?.find(t => t.id === taskId)
+  useEffect(() => {
+    const loadTask = async () => {
+      setIsLoading(true)
+      try {
+        const foundTask = tasks.find(t => t.id === taskId)
+        if (foundTask) {
+          setTask(foundTask)
+          setEditedTask(foundTask)
+        }
+      } catch (error) {
+        console.error('Error loading task:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadTask()
+  }, [taskId, tasks])
 
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this task?')) {
@@ -40,10 +124,10 @@ const TaskDetail = () => {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="p-6 text-center">
-        <h2 className="text-xl text-gray-600">Loading task...</h2>
+      <div className="p-6 max-w-6xl mx-auto">
+        <TaskDetailSkeleton />
       </div>
     )
   }
@@ -51,12 +135,13 @@ const TaskDetail = () => {
   if (!task) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-xl text-gray-600">Task not found</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Task Not Found</h2>
+        <p className="text-gray-600 mb-4">The task you're looking for doesn't exist or has been deleted.</p>
         <button
-          onClick={() => navigate(-1)}
-          className="mt-4 text-[#FF5C5C] hover:underline"
+          onClick={() => navigate('/dashboard')}
+          className="text-[#FF5C5C] hover:underline"
         >
-          Go Back
+          Return to Dashboard
         </button>
       </div>
     )

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import { auth } from '../config/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
@@ -8,7 +8,11 @@ import toast from 'react-hot-toast'
 const AuthContext = createContext()
 
 export const useAuth = () => {
-  return useContext(AuthContext)
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }
 
 export const AuthProvider = ({ children }) => {
@@ -77,16 +81,29 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const value = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     currentUser,
     token,
     loading,
     logout
+  }), [currentUser, token, loading, logout])
+
+  // Show loading screen while initializing auth
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-[#FF5C5C] border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-600">Initializing...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

@@ -5,13 +5,29 @@ import InviteModal from '../components/modals/InviteModal';
 import AddTaskModal from '../components/modals/AddTaskModal';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { LoadingScreen, LoadingSkeleton } from '../components/LoadingSpinner';
+
+const TaskSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-sm p-4 animate-pulse">
+    <div className="flex justify-between items-start">
+      <div className="w-3/4">
+        <div className="h-6 bg-gray-200 rounded w-1/2 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+      </div>
+      <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+    </div>
+  </div>
+);
 
 const Dashboard = () => {
-  const { tasks, updateTask } = useTask();
+  const { tasks, updateTask, fetchTasks } = useTask();
   const { currentUser } = useAuth();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   // Calculate task statistics
   const calculateTaskStats = () => {
@@ -134,8 +150,24 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+    const loadDashboard = async () => {
+      try {
+        await fetchTasks();
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+      } finally {
+        setIsLoading(false);
+        // Simulate stats loading with a slight delay for better UX
+        setTimeout(() => setIsLoadingStats(false), 500);
+      }
+    };
+
+    loadDashboard();
+  }, [fetchTasks]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="px-4 lg:px-6">
@@ -234,101 +266,113 @@ const Dashboard = () => {
             <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm">
               <h2 className="text-lg font-medium mb-6">Task Status</h2>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
-                      <circle
-                        className="text-gray-200"
-                        strokeWidth="8"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                      <circle
-                        className="text-green-500"
-                        strokeWidth="8"
-                        strokeDasharray={251.2}
-                        strokeDashoffset={251.2 - (251.2 * taskStatusData.completed) / 100}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                    </svg>
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                      <span className="text-lg sm:text-xl font-semibold">{taskStatusData.completed}%</span>
+                {isLoadingStats ? (
+                  <>
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="text-center">
+                        <LoadingSkeleton lines={2} />
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-center">
+                      <div className="relative inline-block">
+                        <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
+                          <circle
+                            className="text-gray-200"
+                            strokeWidth="8"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                          <circle
+                            className="text-green-500"
+                            strokeWidth="8"
+                            strokeDasharray={251.2}
+                            strokeDashoffset={251.2 - (251.2 * taskStatusData.completed) / 100}
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                        </svg>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <span className="text-lg sm:text-xl font-semibold">{taskStatusData.completed}%</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm">Completed</p>
                     </div>
-                  </div>
-                  <p className="mt-2 text-sm">Completed</p>
-                </div>
 
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
-                      <circle
-                        className="text-gray-200"
-                        strokeWidth="8"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                      <circle
-                        className="text-blue-500"
-                        strokeWidth="8"
-                        strokeDasharray={251.2}
-                        strokeDashoffset={251.2 - (251.2 * taskStatusData.inProgress) / 100}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                    </svg>
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                      <span className="text-lg sm:text-xl font-semibold">{taskStatusData.inProgress}%</span>
+                    <div className="text-center">
+                      <div className="relative inline-block">
+                        <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
+                          <circle
+                            className="text-gray-200"
+                            strokeWidth="8"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                          <circle
+                            className="text-blue-500"
+                            strokeWidth="8"
+                            strokeDasharray={251.2}
+                            strokeDashoffset={251.2 - (251.2 * taskStatusData.inProgress) / 100}
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                        </svg>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <span className="text-lg sm:text-xl font-semibold">{taskStatusData.inProgress}%</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm">In Progress</p>
                     </div>
-                  </div>
-                  <p className="mt-2 text-sm">In Progress</p>
-                </div>
 
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
-                      <circle
-                        className="text-gray-200"
-                        strokeWidth="8"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                      <circle
-                        className="text-red-500"
-                        strokeWidth="8"
-                        strokeDasharray={251.2}
-                        strokeDashoffset={251.2 - (251.2 * taskStatusData.notStarted) / 100}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                        r="40"
-                        cx="48"
-                        cy="48"
-                      />
-                    </svg>
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                      <span className="text-lg sm:text-xl font-semibold">{taskStatusData.notStarted}%</span>
+                    <div className="text-center">
+                      <div className="relative inline-block">
+                        <svg className="w-20 sm:w-24 h-20 sm:h-24 transform -rotate-90">
+                          <circle
+                            className="text-gray-200"
+                            strokeWidth="8"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                          <circle
+                            className="text-red-500"
+                            strokeWidth="8"
+                            strokeDasharray={251.2}
+                            strokeDashoffset={251.2 - (251.2 * taskStatusData.notStarted) / 100}
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="transparent"
+                            r="40"
+                            cx="48"
+                            cy="48"
+                          />
+                        </svg>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                          <span className="text-lg sm:text-xl font-semibold">{taskStatusData.notStarted}%</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm">Not Started</p>
                     </div>
-                  </div>
-                  <p className="mt-2 text-sm">Not Started</p>
-                </div>
+                  </>
+                )}
               </div>
             </div>
 

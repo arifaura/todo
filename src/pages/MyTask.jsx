@@ -3,14 +3,50 @@ import { useTask } from '../context/TaskContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+
+const TaskListSkeleton = () => (
+  <div className="space-y-4">
+    {/* Search and Filter Bar Skeleton */}
+    <div className="flex flex-col sm:flex-row gap-4 mb-6 animate-pulse">
+      <div className="flex-1 h-10 bg-gray-200 rounded-lg"></div>
+      <div className="w-32 h-10 bg-gray-200 rounded-lg"></div>
+    </div>
+
+    {/* Task Cards Skeleton */}
+    {[1, 2, 3, 4].map((index) => (
+      <div key={index} className="bg-white rounded-lg p-4 shadow-sm animate-pulse">
+        <div className="flex justify-between">
+          <div className="space-y-3 flex-1">
+            {/* Title */}
+            <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+            {/* Description */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            </div>
+            {/* Tags/Status */}
+            <div className="flex gap-2">
+              <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
+              <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
+            </div>
+          </div>
+          {/* Task Image Skeleton */}
+          <div className="w-20 h-20 bg-gray-200 rounded-lg ml-4"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 const MyTask = () => {
-  const { tasks, updateTask, deleteTask } = useTask();
+  const { tasks, updateTask, deleteTask, loading } = useTask();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [selectedTask, setSelectedTask] = useState(null);
   const [filter, setFilter] = useState('all'); // all, active, completed
   const [sort, setSort] = useState('date'); // date, priority, status
+  const [isLoading, setIsLoading] = useState(true);
 
   // Filter user's tasks
   const userTasks = tasks.filter(task => task.userId === currentUser.uid);
@@ -45,6 +81,15 @@ const MyTask = () => {
     }
   }, [sortedTasks]);
 
+  useEffect(() => {
+    // Simulate loading time for better UX
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleStatusChange = async (taskId, newStatus) => {
     try {
       await updateTask(taskId, { status: newStatus });
@@ -74,6 +119,14 @@ const MyTask = () => {
     const taskDate = new Date(date);
     return `${taskDate.toLocaleDateString()} ${time || ''}`.trim();
   };
+
+  if (loading || isLoading) {
+    return (
+      <div className="p-6">
+        <TaskListSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6">
