@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTask } from '../context/TaskContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { OnboardingService } from '../services/OnboardingService';
+import 'driver.js/dist/driver.css';
 
 const VitalTask = () => {
   const { tasks } = useTask();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
   // Get vital tasks (Extreme priority tasks that are due within 3 days or overdue)
   const vitalTasks = tasks.filter(task => {
@@ -41,106 +46,49 @@ const VitalTask = () => {
     }
   });
 
-  const TaskCard = ({ task }) => {
-    const dueDate = new Date(task.endDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    let dueDateText = '';
-    let dueDateColor = '';
-    let bgGradient = '';
-    
-    if (dueDate < today) {
-      const daysOverdue = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
-      dueDateText = `${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue`;
-      dueDateColor = 'text-red-500';
-      bgGradient = 'bg-gradient-to-r from-red-50 to-transparent';
-    } else if (dueDate.toDateString() === today.toDateString()) {
-      dueDateText = 'Due today';
-      dueDateColor = 'text-orange-500';
-      bgGradient = 'bg-gradient-to-r from-orange-50 to-transparent';
-    } else {
-      const daysUntil = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-      dueDateText = `Due in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`;
-      dueDateColor = 'text-blue-500';
-      bgGradient = 'bg-gradient-to-r from-blue-50 to-transparent';
-    }
+  // Initialize loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
 
-    const startDate = new Date(task.startDate);
-    const timeRange = `${startDate.toLocaleDateString()} ${task.startTime || '00:00'} - ${dueDate.toLocaleDateString()} ${task.endTime || '23:59'}`;
+    return () => clearTimeout(timer);
+  }, []);
 
+  // Initialize onboarding tour
+  useEffect(() => {
+    let mounted = true;
+
+    const initTour = async () => {
+      if (mounted && currentUser && !isLoading) {
+        try {
+          await OnboardingService.checkAndStartTour(currentUser.uid, 'vitalTask');
+        } catch (error) {
+          console.error('Error starting tour:', error);
+        }
+      }
+    };
+
+    initTour();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser, isLoading]);
+
+  if (isLoading) {
     return (
-      <div 
-        className={`rounded-xl p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] backdrop-blur-sm ${bgGradient} border border-white/20`}
-        onClick={() => navigate(`/task/${task.id}`)}
-      >
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="font-medium text-lg truncate">{task.title}</h3>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${dueDateColor} ${bgGradient.replace('50', '100')} ml-2`}>
-                {dueDateText}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{task.description}</p>
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  task.status === 'Not Started' ? 'bg-red-500' :
-                  task.status === 'In Progress' ? 'bg-blue-500' :
-                  'bg-green-500'
-                }`} />
-                <span className="text-gray-700 font-medium">
-                  {task.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-gray-600">{timeRange}</span>
-              </div>
-            </div>
-          </div>
-          {task.image && (
-            <div className="relative">
-              <img 
-                src={task.image} 
-                alt="" 
-                className="w-20 h-20 rounded-lg object-cover shadow-md" 
-              />
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-t from-black/20 to-transparent" />
-            </div>
-          )}
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#FF5C5C] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
-  };
-
-  const TaskSection = ({ title, tasks, color, icon }) => (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full ${color} bg-opacity-20 flex items-center justify-center`}>
-          <span className="text-lg">{icon}</span>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-xl font-semibold">{title}</h2>
-          <span className="text-sm text-gray-500">({tasks.length})</span>
-        </div>
-      </div>
-      <div className="space-y-4">
-        {tasks.map(task => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-      </div>
-    </div>
-  );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white px-4 lg:px-6 py-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center space-y-3">
+        <div className="vital-task-header text-center space-y-3">
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-500">
             Vital Tasks
           </h1>
@@ -150,7 +98,7 @@ const VitalTask = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="vital-stats grid grid-cols-3 gap-4">
           <div className="bg-white/50 backdrop-blur-sm rounded-xl p-4 border border-white/20">
             <div className="text-red-500 font-semibold">Overdue</div>
             <div className="text-2xl font-bold">{groupedTasks.overdue.length}</div>
@@ -166,43 +114,89 @@ const VitalTask = () => {
         </div>
 
         {/* Task Sections */}
-        <div className="space-y-8">
+        <div className="vital-task-list space-y-8">
+          {/* Overdue Tasks */}
           {groupedTasks.overdue.length > 0 && (
-            <TaskSection 
-              title="Overdue" 
-              tasks={groupedTasks.overdue} 
-              color="bg-red-500"
-              icon="⚠️"
-            />
-          )}
-          
-          {groupedTasks.dueToday.length > 0 && (
-            <TaskSection 
-              title="Due Today" 
-              tasks={groupedTasks.dueToday} 
-              color="bg-orange-500"
-              icon="📅"
-            />
-          )}
-          
-          {groupedTasks.upcoming.length > 0 && (
-            <TaskSection 
-              title="Coming Up" 
-              tasks={groupedTasks.upcoming} 
-              color="bg-blue-500"
-              icon="🔜"
-            />
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-red-500">Overdue Tasks</h2>
+              <div className="space-y-3">
+                {groupedTasks.overdue.map(task => (
+                  <div
+                    key={task.id}
+                    onClick={() => navigate(`/task/${task.id}`)}
+                    className="bg-white/50 backdrop-blur-sm rounded-lg p-4 border border-white/20 cursor-pointer hover:bg-white/70 transition-colors"
+                  >
+                    <h3 className="font-medium text-gray-900">{task.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">
+                        {new Date(task.endDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
-          {vitalTasks.length === 0 && (
-            <div className="text-center py-12 bg-white/50 backdrop-blur-sm rounded-xl border border-white/20">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                <span className="text-2xl">✨</span>
+          {/* Due Today Tasks */}
+          {groupedTasks.dueToday.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-orange-500">Due Today</h2>
+              <div className="space-y-3">
+                {groupedTasks.dueToday.map(task => (
+                  <div
+                    key={task.id}
+                    onClick={() => navigate(`/task/${task.id}`)}
+                    className="bg-white/50 backdrop-blur-sm rounded-lg p-4 border border-white/20 cursor-pointer hover:bg-white/70 transition-colors"
+                  >
+                    <h3 className="font-medium text-gray-900">{task.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-full">
+                        Today
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="text-gray-600 font-medium">No vital tasks at the moment</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Vital tasks are extreme priority tasks due within 3 days
-              </p>
+            </div>
+          )}
+
+          {/* Upcoming Tasks */}
+          {groupedTasks.upcoming.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-blue-500">Coming Up</h2>
+              <div className="space-y-3">
+                {groupedTasks.upcoming.map(task => (
+                  <div
+                    key={task.id}
+                    onClick={() => navigate(`/task/${task.id}`)}
+                    className="bg-white/50 backdrop-blur-sm rounded-lg p-4 border border-white/20 cursor-pointer hover:bg-white/70 transition-colors"
+                  >
+                    <h3 className="font-medium text-gray-900">{task.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                        {new Date(task.endDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No Tasks Message */}
+          {vitalTasks.length === 0 && (
+            <div className="text-center py-12">
+              <div className="bg-gray-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">No vital tasks</h3>
+              <p className="text-gray-500 mt-1">You're all caught up! No extreme priority tasks due soon.</p>
             </div>
           )}
         </div>

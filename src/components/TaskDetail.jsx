@@ -2,266 +2,326 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTask } from '../context/TaskContext'
 import toast from 'react-hot-toast'
-import { LoadingSpinner } from './LoadingSpinner'
 
-const TaskDetailSkeleton = () => (
-  <div className="animate-pulse">
-    {/* Header Section */}
-    <div className="mb-8">
-      <div className="h-8 w-3/4 bg-gray-200 rounded-lg mb-3"></div>
-      <div className="flex gap-3 mb-4">
-        <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
-        <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
-      </div>
-      <div className="h-4 w-1/2 bg-gray-200 rounded mb-2"></div>
-      <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
-    </div>
+const TaskStatusBadge = ({ status }) => {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'Not Started':
+        return 'bg-red-100 text-red-700 border-red-200'
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'Completed':
+        return 'bg-green-100 text-green-700 border-green-200'
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200'
+    }
+  }
 
-    {/* Details Grid */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      <div className="space-y-4">
-        {/* Left Column */}
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
-          <div className="space-y-2">
-            <div className="h-4 w-3/4 bg-gray-200 rounded"></div>
-            <div className="h-4 w-2/3 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="h-8 bg-gray-200 rounded"></div>
-            <div className="h-8 bg-gray-200 rounded"></div>
-            <div className="h-8 bg-gray-200 rounded"></div>
-            <div className="h-8 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
+  return (
+    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor()}`}>
+      {status}
+    </span>
+  )
+}
 
-      {/* Right Column */}
-      <div className="space-y-4">
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="h-5 w-1/4 bg-gray-200 rounded mb-3"></div>
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="h-4 w-4 bg-gray-200 rounded"></div>
-                <div className="h-4 flex-1 bg-gray-200 rounded"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+const PriorityBadge = ({ priority }) => {
+  const getPriorityColor = () => {
+    switch (priority) {
+      case 'Extreme':
+        return 'bg-red-100 text-red-700 border-red-200'
+      case 'Moderate':
+        return 'bg-orange-100 text-orange-700 border-orange-200'
+      case 'Low':
+        return 'bg-green-100 text-green-700 border-green-200'
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200'
+    }
+  }
 
-    {/* Action Buttons */}
-    <div className="flex gap-3">
-      <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
-      <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
-    </div>
-  </div>
-)
+  return (
+    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getPriorityColor()}`}>
+      {priority}
+    </span>
+  )
+}
 
 const TaskDetail = () => {
   const { taskId } = useParams()
   const navigate = useNavigate()
-  const { tasks, loading, deleteTask, updateTask } = useTask()
-  const [isBookmarked, setIsBookmarked] = useState(false)
+  const { tasks, updateTask } = useTask()
   const [task, setTask] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedTask, setEditedTask] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadTask = async () => {
-      setIsLoading(true)
-      try {
-        const foundTask = tasks.find(t => t.id === taskId)
-        if (foundTask) {
-          setTask(foundTask)
-          setEditedTask(foundTask)
-        }
-      } catch (error) {
-        console.error('Error loading task:', error)
-      } finally {
-        setIsLoading(false)
-      }
+    if (tasks) {
+      const foundTask = tasks.find(t => t.id === taskId)
+      setTask(foundTask)
+      setLoading(false)
     }
-
-    loadTask()
   }, [taskId, tasks])
 
-  const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await deleteTask(taskId)
-        toast.success('Task deleted successfully')
-        navigate('/my-task')
-      } catch (error) {
-        console.error('Error deleting task:', error)
-        toast.error('Failed to delete task')
-      }
-    }
-  }
-
-  const handleEdit = () => {
-    navigate(`/task/${taskId}/edit`)
-  }
-
-  const handleBookmark = async () => {
+  const handleStatusChange = async (newStatus) => {
     try {
-      await updateTask(taskId, { isBookmarked: !isBookmarked })
-      setIsBookmarked(!isBookmarked)
-      toast.success(isBookmarked ? 'Bookmark removed' : 'Task bookmarked')
+      const updatedTask = {
+        ...task,
+        status: newStatus,
+        completedAt: newStatus === 'Completed' ? new Date().toISOString() : null
+      }
+      await updateTask(task.id, updatedTask)
+      setTask(updatedTask)
+      toast.success(`Task marked as ${newStatus}`)
     } catch (error) {
-      console.error('Error updating bookmark:', error)
-      toast.error('Failed to update bookmark')
+      console.error('Error updating task status:', error)
+      toast.error('Failed to update task status')
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <TaskDetailSkeleton />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#FF5C5C] border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
 
   if (!task) {
     return (
-      <div className="p-6 text-center">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Task Not Found</h2>
-        <p className="text-gray-600 mb-4">The task you're looking for doesn't exist or has been deleted.</p>
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="text-[#FF5C5C] hover:underline"
-        >
-          Return to Dashboard
-        </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-sm p-6 max-w-md w-full text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Task Not Found</h2>
+          <p className="text-gray-600 mb-4">This task might have been deleted or doesn't exist.</p>
+          <button
+            onClick={() => navigate('/my-task')}
+            className="px-4 py-2 bg-[#FF5C5C] text-white rounded-lg hover:bg-[#ff4444]"
+          >
+            Go to My Tasks
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-4">
-          <h1 className="text-xl font-medium">{task.title}</h1>
-          <button
-            onClick={() => navigate(-1)}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            Go Back
-          </button>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">{task.title}</h1>
+              <div className="flex flex-wrap gap-2">
+                <TaskStatusBadge status={task.status} />
+                <PriorityBadge priority={task.priority} />
+                {task.category && (
+                  <span 
+                    className="px-3 py-1 rounded-full text-sm font-medium border"
+                    style={{ 
+                      backgroundColor: `${task.category.color}15`,
+                      color: task.category.color,
+                      borderColor: `${task.category.color}30`
+                    }}
+                  >
+                    {task.category.name}
+                  </span>
+                )}
+                {task.isVital && (
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
+                    Vital Task
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate(`/task/${taskId}/edit`)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Task
+              </button>
+              {task.status !== 'Completed' ? (
+                <button
+                  onClick={() => handleStatusChange('Completed')}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Complete
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleStatusChange('Not Started')}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restart
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="prose max-w-none">
+            <p className="text-gray-600 whitespace-pre-line">{task.description}</p>
+          </div>
         </div>
 
-        {/* Task Info */}
-        <div className="flex gap-6 mb-6">
-          <div className="w-1/3">
-            {task.image && (
-              <img
-                src={task.image}
-                alt={task.title}
-                className="w-full h-40 object-cover rounded-lg"
-              />
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Category Information - NEW SECTION */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Category</h2>
+              {task.category ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: task.category.color }}
+                    ></div>
+                    <span className="text-lg font-medium" style={{ color: task.category.color }}>
+                      {task.category.name}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ 
+                    backgroundColor: `${task.category.color}10`,
+                    border: `1px solid ${task.category.color}30`
+                  }}>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: task.category.color }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <span className="text-gray-600">Category Tasks: {task.category.taskCount || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  <span>No category assigned</span>
+                </div>
+              )}
+            </div>
+
+            {/* Dates and Times */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Start Date</p>
+                    <p className="font-medium">{new Date(task.startDate).toLocaleDateString()}</p>
+                    {task.startTime && (
+                      <p className="text-sm text-gray-500">{task.startTime}</p>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">End Date</p>
+                    <p className="font-medium">{new Date(task.endDate).toLocaleDateString()}</p>
+                    {task.endTime && (
+                      <p className="text-sm text-gray-500">{task.endTime}</p>
+                    )}
+                  </div>
+                </div>
+                {task.completedAt && (
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-gray-500">Completed On</p>
+                    <p className="font-medium">{new Date(task.completedAt).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Optional Items */}
+            {task.optional && task.optional.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Additional Notes</h2>
+                <ul className="space-y-2">
+                  {task.optional.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-gray-400 mt-1">•</span>
+                      <span className="text-gray-600">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
-          <div className="flex-1">
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">Priority:</span>
-                <span className={`${
-                  task.priority === 'Extreme' ? 'text-red-500' :
-                  task.priority === 'Moderate' ? 'text-blue-500' :
-                  'text-green-500'
-                }`}>{task.priority}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">Status:</span>
-                <span className="text-red-500">{task.status}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">Due Date:</span>
-                <span className="text-gray-600">{task.date}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">Created on:</span>
-                <span className="text-gray-600">{task.createdOn}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Task Description */}
-        <div className="mb-6">
-          <h3 className="text-gray-700 font-medium mb-2">Description</h3>
-          <p className="text-gray-600 mb-4">{task.description}</p>
-          
-          {/* Steps List */}
-          {task.steps?.length > 0 && (
-            <div>
-              <h3 className="text-gray-700 font-medium mb-2">Steps</h3>
-              <div className="space-y-2">
-                {task.steps.map((step, index) => (
-                  <div key={index} className="flex gap-2">
-                    <span className="text-gray-500">{index + 1}.</span>
-                    <p className="text-gray-600">{step}</p>
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Task Image */}
+            {task.image && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Task Image</h2>
+                <img
+                  src={task.image}
+                  alt={task.title}
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+              </div>
+            )}
+
+            {/* Deadline Information */}
+            {task.deadline && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Deadline Details</h2>
+                <div className="space-y-2">
+                  <p className="text-gray-600">
+                    <span className="font-medium">Type:</span> {task.deadline.type}
+                  </p>
+                  {task.deadline.type === 'flexible' && (
+                    <p className="text-gray-600">
+                      <span className="font-medium">Duration:</span> {task.deadline.duration} {task.deadline.unit}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Task Progress */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Task Progress</h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${
+                          task.status === 'Completed' ? 'bg-green-500' :
+                          task.status === 'In Progress' ? 'bg-blue-500' : 'bg-red-500'
+                        }`}
+                        style={{ 
+                          width: task.status === 'Completed' ? '100%' : 
+                                task.status === 'In Progress' ? '50%' : '0%' 
+                        }}
+                      ></div>
+                    </div>
                   </div>
-                ))}
+                  <span className="text-sm font-medium text-gray-600">
+                    {task.status === 'Completed' ? '100%' :
+                     task.status === 'In Progress' ? '50%' : '0%'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Not Started</span>
+                  <span>In Progress</span>
+                  <span>Completed</span>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Optional Section */}
-        {task.optional?.length > 0 && (
-          <div>
-            <h3 className="text-gray-700 font-medium mb-2">Optional:</h3>
-            <ul className="list-disc list-inside space-y-1">
-              {task.optional.map((item, index) => (
-                <li key={index} className="text-gray-600">
-                  {item}
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-2 mt-6">
-          <button 
-            onClick={handleDelete}
-            className="p-2 rounded-full bg-red-50 hover:bg-red-100 transition-colors"
-            title="Delete task"
-          >
-            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-          <button 
-            onClick={handleEdit}
-            className="p-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
-            title="Edit task"
-          >
-            <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button 
-            onClick={handleBookmark}
-            className={`p-2 rounded-full ${isBookmarked ? 'bg-yellow-100' : 'bg-yellow-50'} hover:bg-yellow-100 transition-colors`}
-            title={isBookmarked ? 'Remove bookmark' : 'Bookmark task'}
-          >
-            <svg className="w-5 h-5 text-yellow-500" fill={isBookmarked ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-          </button>
         </div>
       </div>
     </div>

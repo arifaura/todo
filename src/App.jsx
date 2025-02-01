@@ -17,6 +17,7 @@ import TaskDetail from './components/TaskDetail'
 import EditTaskModal from './components/EditTaskModal'
 import NotFound from './pages/NotFound'
 import { Suspense, lazy } from 'react'
+import 'driver.js/dist/driver.css'
 
 // Initial loading component
 const InitialLoader = () => (

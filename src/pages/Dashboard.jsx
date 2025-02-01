@@ -6,6 +6,8 @@ import AddTaskModal from '../components/modals/AddTaskModal';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LoadingScreen, LoadingSkeleton } from '../components/LoadingSpinner';
+import { OnboardingService } from '../services/OnboardingService';
+import 'driver.js/dist/driver.css';
 
 const TaskSkeleton = () => (
   <div className="bg-white rounded-lg shadow-sm p-4 animate-pulse">
@@ -164,6 +166,26 @@ const Dashboard = () => {
 
     loadDashboard();
   }, [fetchTasks]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initTour = async () => {
+      if (mounted && currentUser && !isLoading) {
+        try {
+          await OnboardingService.checkAndStartTour(currentUser.uid, 'dashboard');
+        } catch (error) {
+          console.error('Error starting tour:', error);
+        }
+      }
+    };
+
+    initTour();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser, isLoading]);
 
   if (isLoading) {
     return <LoadingScreen />;
