@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, Fa
 import { auth } from '../config/firebase'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
-import signupImg from '../assets/images/signupImg.png'
+import signupImg from '../assets/Images/signupImg.png'
 
 const Register = () => {
   const navigate = useNavigate()
