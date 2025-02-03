@@ -56,6 +56,9 @@ const Login = () => {
       const authProvider = provider === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider()
       
       if (isMobileDevice()) {
+        // Store the intended destination before redirect
+        localStorage.setItem('authRedirectPath', from)
+        
         // Use redirect method for mobile devices
         await signInWithRedirect(auth, authProvider)
         // Note: The redirect will happen here, and the result will be handled in useEffect
@@ -83,6 +86,7 @@ const Login = () => {
       }
       
       localStorage.removeItem('authToken')
+      localStorage.removeItem('authRedirectPath') // Clean up if error occurs
     } finally {
       setLoading(false)
     }
@@ -97,8 +101,13 @@ const Login = () => {
           const user = result.user
           const token = await user.getIdToken()
           localStorage.setItem('authToken', token)
+          
+          // Store the intended destination before redirect
+          const intendedPath = localStorage.getItem('authRedirectPath') || '/dashboard'
+          localStorage.removeItem('authRedirectPath') // Clean up
+          
           toast.success('Successfully logged in!')
-          navigate(from, { replace: true })
+          navigate(intendedPath, { replace: true })
         }
       } catch (error) {
         console.error('Redirect result error:', error)
@@ -108,7 +117,7 @@ const Login = () => {
     }
 
     handleRedirectResult()
-  }, [navigate, from])
+  }, [navigate])
 
   return (
     <div className="w-full min-h-screen flex items-center justify-center auth-pattern-bg px-4 py-12">
