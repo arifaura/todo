@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
 import { auth } from '../config/firebase'
 import toast from 'react-hot-toast'
-import loginImg from '../assets/images/loginImg.png'
+import loginImg from '../assets/Images/loginImg.png'
 
 const Login = () => {
   const navigate = useNavigate()
