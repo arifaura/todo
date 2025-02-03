@@ -1,9 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTask } from '../../context/TaskContext'
 import { useState, useEffect } from 'react'
-import searchIcon from '../../assets/Images/search.png'
-import notificationIcon from '../../assets/Images/notifi.png'
-import calendarIcon from '../../assets/Images/cal.png'
+// import searchIcon from '../../assets/Images/search.png'
+// import notificationIcon from '../../assets/Images/notifi.png'
+// import calendarIcon from '../../assets/Images/cal.png'
 import Sidebar from './Sidebar'
 
 const Header = () => {
