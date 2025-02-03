@@ -57,7 +57,18 @@ const Login = () => {
       navigate(from, { replace: true })
     } catch (error) {
       console.error('Social login error:', error)
-      toast.error(error.message)
+      
+      // More specific error messages
+      if (error.code === 'auth/popup-blocked') {
+        toast.error('Please allow popups for this website')
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        toast.error('Login cancelled. Please try again')
+      } else if (error.code === 'auth/unauthorized-domain') {
+        toast.error('This domain is not authorized for login. Please contact support')
+      } else {
+        toast.error(error.message)
+      }
+      
       localStorage.removeItem('authToken')
     } finally {
       setLoading(false)
