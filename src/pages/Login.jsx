@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth'
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth'
 import { auth } from '../config/firebase'
 import toast from 'react-hot-toast'
 import loginImg from '../assets/Images/loginImg.png'
@@ -45,16 +45,29 @@ const Login = () => {
     }
   }
 
+  // Add this function to detect mobile devices
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
   const handleSocialLogin = async (provider) => {
     setLoading(true)
     try {
       const authProvider = provider === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider()
-      const result = await signInWithPopup(auth, authProvider)
-      const user = result.user
-      const token = await user.getIdToken()
-      localStorage.setItem('authToken', token)
-      toast.success('Successfully logged in!')
-      navigate(from, { replace: true })
+      
+      if (isMobileDevice()) {
+        // Use redirect method for mobile devices
+        await signInWithRedirect(auth, authProvider)
+        // Note: The redirect will happen here, and the result will be handled in useEffect
+      } else {
+        // Use popup for desktop devices
+        const result = await signInWithPopup(auth, authProvider)
+        const user = result.user
+        const token = await user.getIdToken()
+        localStorage.setItem('authToken', token)
+        toast.success('Successfully logged in!')
+        navigate(from, { replace: true })
+      }
     } catch (error) {
       console.error('Social login error:', error)
       
@@ -74,6 +87,28 @@ const Login = () => {
       setLoading(false)
     }
   }
+
+  // Add useEffect to handle redirect result
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          const user = result.user
+          const token = await user.getIdToken()
+          localStorage.setItem('authToken', token)
+          toast.success('Successfully logged in!')
+          navigate(from, { replace: true })
+        }
+      } catch (error) {
+        console.error('Redirect result error:', error)
+        toast.error(error.message)
+        localStorage.removeItem('authToken')
+      }
+    }
+
+    handleRedirectResult()
+  }, [navigate, from])
 
   return (
     <div className="w-full min-h-screen flex items-center justify-center auth-pattern-bg px-4 py-12">
