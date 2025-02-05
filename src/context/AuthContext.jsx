@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext()
 
@@ -19,6 +20,44 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState(sessionStorage.getItem('authToken'))
+  const [isRegistering, setIsRegistering] = useState(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          // First set the user and navigate immediately
+          setCurrentUser(user)
+          if (window.location.pathname === '/login' || window.location.pathname === '/register') {
+            navigate('/dashboard', { replace: true })
+          }
+
+          // Then handle token and data storage
+          const token = await user.getIdToken()
+          setToken(token)
+          sessionStorage.setItem('authToken', token)
+          await storeUserData(user)
+        } else {
+          setToken(null)
+          setCurrentUser(null)
+          sessionStorage.removeItem('authToken')
+          
+          // Only redirect to login if not on a public route
+          const publicRoutes = ['/login', '/register', '/forgot-password']
+          if (!publicRoutes.includes(window.location.pathname)) {
+            navigate('/login', { replace: true })
+          }
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error)
+      } finally {
+        setLoading(false)
+      }
+    })
+
+    return unsubscribe
+  }, [navigate])
 
   // Store user data in Firestore
   const storeUserData = async (user) => {
@@ -36,6 +75,8 @@ export const AuthProvider = ({ children }) => {
           createdAt: new Date().toISOString(),
           lastLogin: new Date().toISOString()
         })
+        setIsRegistering(true) // Set registering flag for new users
+        navigate('/dashboard', { replace: true })
       } catch (error) {
         console.error('Error storing user data:', error)
       }
@@ -45,28 +86,6 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Get the JWT token
-        const token = await user.getIdToken()
-        setToken(token)
-        sessionStorage.setItem('authToken', token)
-        
-        // Store user data in Firestore
-        await storeUserData(user)
-        setCurrentUser(user)
-      } else {
-        setToken(null)
-        setCurrentUser(null)
-        sessionStorage.removeItem('authToken')
-      }
-      setLoading(false)
-    })
-
-    return unsubscribe
-  }, [])
-
   const logout = async () => {
     try {
       await signOut(auth)
@@ -74,7 +93,6 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(null)
       setToken(null)
       toast.success('Logged out successfully')
-      // Navigation will be handled by the component that calls logout
     } catch (error) {
       console.error('Logout error:', error)
       toast.error('Failed to logout')
@@ -86,8 +104,10 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     token,
     loading,
-    logout
-  }), [currentUser, token, loading, logout])
+    logout,
+    isRegistering,
+    setIsRegistering
+  }), [currentUser, token, loading, logout, isRegistering])
 
   // Show loading screen while initializing auth
   if (loading) {

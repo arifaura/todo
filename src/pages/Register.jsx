@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, updateProfile } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, signInWithRedirect, getRedirectResult, updateProfile } from 'firebase/auth'
 import { auth } from '../config/firebase'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
@@ -8,7 +8,7 @@ import signupImg from '../assets/Images/signupImg.png'
 
 const Register = () => {
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
+  const { currentUser, setIsRegistering } = useAuth()
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -18,21 +18,79 @@ const Register = () => {
   })
   const [loading, setLoading] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [socialLoading, setSocialLoading] = useState({ google: false, facebook: false })
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
-  // If user is already logged in, redirect to dashboard
-  React.useEffect(() => {
-    if (currentUser) {
+  const handleSuccessfulRegister = useCallback(async (user) => {
+    try {
+      setIsRegistering(true)
+      const token = await user.getIdToken()
+      localStorage.setItem('authToken', token)
+      sessionStorage.setItem('authToken', token)
       navigate('/dashboard', { replace: true })
+      toast.success('Account created successfully!')
+    } catch (error) {
+      console.error('Token error:', error)
+      toast.error('Registration failed')
     }
-  }, [currentUser, navigate])
+  }, [navigate, setIsRegistering])
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+  const handleSocialRegister = async (provider) => {
+    if (loading) return
+    setLoading(true)
+
+    try {
+      const authProvider = provider === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider()
+      await signInWithPopup(auth, authProvider)
+      toast.success('Account created successfully!')
+    } catch (error) {
+      console.error('Social registration error:', error)
+      let errorMessage = 'Registration failed'
+      
+      switch (error.code) {
+        case 'auth/account-exists-with-different-credential':
+          errorMessage = 'An account already exists with this email'
+          break
+        case 'auth/popup-blocked':
+          errorMessage = 'Login popup was blocked. Please allow popups and try again'
+          break
+        case 'auth/popup-closed-by-user':
+          errorMessage = 'Registration was cancelled'
+          break
+        default:
+          errorMessage = error.message
+      }
+      
+      toast.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // Handle redirect result
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          const token = await result.user.getIdToken()
+          localStorage.setItem('authToken', token)
+          sessionStorage.setItem('authToken', token)
+          navigate('/dashboard', { replace: true })
+          sessionStorage.removeItem('authRedirectPath')
+          sessionStorage.removeItem('authProvider')
+          toast.success('Account created successfully!')
+        }
+      } catch (error) {
+        console.error('Redirect result error:', error)
+        toast.error('Registration failed. Please try again.')
+        localStorage.removeItem('authToken')
+        sessionStorage.removeItem('authToken')
+      }
+    }
+
+    handleRedirectResult()
+  }, [navigate])
 
   const handleEmailRegister = async (e) => {
     e.preventDefault()
@@ -53,28 +111,15 @@ const Register = () => {
 
     setLoading(true)
     try {
-      // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
-      const user = userCredential.user
-      
-      // Update user profile with name
-      await updateProfile(user, {
+      await updateProfile(userCredential.user, {
         displayName: `${formData.firstName} ${formData.lastName}`
       })
-
-      // Get and store token
-      const token = await user.getIdToken()
-      localStorage.setItem('authToken', token)
-      sessionStorage.setItem('authToken', token)
-      
       toast.success('Account created successfully!')
-      
-      // The navigation will be handled by the useEffect when currentUser updates
     } catch (error) {
       console.error('Registration error:', error)
       let errorMessage = 'Registration failed'
       
-      // Handle specific Firebase errors
       switch (error.code) {
         case 'auth/email-already-in-use':
           errorMessage = 'This email is already registered'
@@ -93,51 +138,21 @@ const Register = () => {
       }
       
       toast.error(errorMessage)
-      localStorage.removeItem('authToken')
-      sessionStorage.removeItem('authToken')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSocialRegister = async (provider) => {
-    if (loading) return // Prevent multiple clicks
-    
-    setLoading(true)
-    try {
-      const authProvider = provider === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider()
-      const result = await signInWithPopup(auth, authProvider)
-      const user = result.user
-      const token = await user.getIdToken()
-      localStorage.setItem('authToken', token)
-      sessionStorage.setItem('authToken', token)
-      toast.success('Account created successfully!')
-      // The navigation will be handled by the useEffect when currentUser updates
-    } catch (error) {
-      console.error('Social registration error:', error)
-      let errorMessage = 'Social login failed'
-      
-      // Handle specific Firebase errors
-      switch (error.code) {
-        case 'auth/account-exists-with-different-credential':
-          errorMessage = 'An account already exists with this email'
-          break
-        case 'auth/popup-blocked':
-          errorMessage = 'Login popup was blocked. Please allow popups and try again'
-          break
-        case 'auth/popup-closed-by-user':
-          errorMessage = 'Login was cancelled'
-          break
-        default:
-          errorMessage = error.message
-      }
-      
-      toast.error(errorMessage)
-      localStorage.removeItem('authToken')
-      sessionStorage.removeItem('authToken')
-    } finally {
-      setLoading(false)
-    }
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
   return (
@@ -170,7 +185,7 @@ const Register = () => {
                       name="firstName"
                       type="text"
                       required
-                      disabled={loading}
+                      disabled={loading || isAuthenticating}
                       value={formData.firstName}
                       onChange={handleChange}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#FF5C5C] focus:border-[#FF5C5C] sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -183,7 +198,7 @@ const Register = () => {
                       name="lastName"
                       type="text"
                       required
-                      disabled={loading}
+                      disabled={loading || isAuthenticating}
                       value={formData.lastName}
                       onChange={handleChange}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#FF5C5C] focus:border-[#FF5C5C] sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -198,7 +213,7 @@ const Register = () => {
                     name="email"
                     type="email"
                     required
-                    disabled={loading}
+                    disabled={loading || isAuthenticating}
                     value={formData.email}
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#FF5C5C] focus:border-[#FF5C5C] sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -212,7 +227,7 @@ const Register = () => {
                     name="password"
                     type="password"
                     required
-                    disabled={loading}
+                    disabled={loading || isAuthenticating}
                     value={formData.password}
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#FF5C5C] focus:border-[#FF5C5C] sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -226,7 +241,7 @@ const Register = () => {
                     name="confirmPassword"
                     type="password"
                     required
-                    disabled={loading}
+                    disabled={loading || isAuthenticating}
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#FF5C5C] focus:border-[#FF5C5C] sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -239,7 +254,7 @@ const Register = () => {
                   id="terms"
                   name="terms"
                   type="checkbox"
-                  disabled={loading}
+                  disabled={loading || isAuthenticating}
                   checked={acceptTerms}
                   onChange={(e) => setAcceptTerms(e.target.checked)}
                   className="h-4 w-4 text-[#FF5C5C] focus:ring-[#FF5C5C] border-gray-300 rounded disabled:cursor-not-allowed"
@@ -251,10 +266,10 @@ const Register = () => {
 
               <button
                 type="submit"
-                disabled={loading || !acceptTerms}
+                disabled={loading || !acceptTerms || isAuthenticating}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#FF5C5C] hover:bg-[#ff3c3c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF5C5C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
               >
-                {loading ? (
+                {loading || isAuthenticating ? (
                   <span className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -278,14 +293,11 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => handleSocialRegister('facebook')}
-                  disabled={loading}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-[#1877F2] text-white text-sm font-medium hover:bg-[#1666d4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1877F2] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  disabled={loading || socialLoading.facebook || isAuthenticating}
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-[#1877F2] text-white text-sm font-medium hover:bg-[#1666d4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1877F2] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                  {socialLoading.facebook || isAuthenticating ? (
+                    <span>Creating account...</span>
                   ) : (
                     <>
                       <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -298,14 +310,11 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => handleSocialRegister('google')}
-                  disabled={loading}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF5C5C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  disabled={loading || socialLoading.google || isAuthenticating}
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF5C5C] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
-                    <svg className="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                  {socialLoading.google || isAuthenticating ? (
+                    <span>Creating account...</span>
                   ) : (
                     <>
                       <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

@@ -16,6 +16,7 @@ import Help from './pages/Help'
 import TaskDetail from './components/TaskDetail'
 import EditTaskModal from './components/EditTaskModal'
 import NotFound from './pages/NotFound'
+import ForgotPassword from './pages/ForgotPassword'
 import { Suspense, lazy } from 'react'
 import 'driver.js/dist/driver.css'
 
@@ -38,23 +39,13 @@ function App() {
           <Suspense fallback={<InitialLoader />}>
             <Routes>
               {/* Public Routes */}
-              <Route path="/login" element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              } />
-              <Route path="/register" element={
-                <PublicRoute>
-                  <Register />
-                </PublicRoute>
-              } />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+
 
               {/* Protected Routes */}
-              <Route path="/" element={
-                <PrivateRoute>
-                  <RootLayout />
-                </PrivateRoute>
-              }>
+              <Route path="/" element={<PrivateRoute><RootLayout /></PrivateRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="vital-task" element={<VitalTask />} />
@@ -66,7 +57,7 @@ function App() {
                 <Route path="task/:taskId/edit" element={<EditTaskModal />} />
               </Route>
 
-              {/* 404 Route - Must be last */}
+              {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
