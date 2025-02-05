@@ -15,6 +15,7 @@ const Login = () => {
     password: ''
   })
   const [loading, setLoading] = useState(false)
+  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -55,13 +56,14 @@ const Login = () => {
     try {
       const authProvider = provider === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider()
       
+      // Always use redirect for mobile, popup for desktop
       if (isMobileDevice()) {
-        // Store the intended destination before redirect
-        localStorage.setItem('authRedirectPath', from)
+        // Store the intended destination and provider before redirect
+        sessionStorage.setItem('authRedirectPath', from)
+        sessionStorage.setItem('authProvider', provider)
         
         // Use redirect method for mobile devices
         await signInWithRedirect(auth, authProvider)
-        // Note: The redirect will happen here, and the result will be handled in useEffect
       } else {
         // Use popup for desktop devices
         const result = await signInWithPopup(auth, authProvider)
@@ -73,26 +75,14 @@ const Login = () => {
       }
     } catch (error) {
       console.error('Social login error:', error)
-      
-      // More specific error messages
-      if (error.code === 'auth/popup-blocked') {
-        toast.error('Please allow popups for this website')
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        toast.error('Login cancelled. Please try again')
-      } else if (error.code === 'auth/unauthorized-domain') {
-        toast.error('This domain is not authorized for login. Please contact support')
-      } else {
-        toast.error(error.message)
-      }
-      
+      toast.error(error.message || 'Failed to login. Please try again.')
       localStorage.removeItem('authToken')
-      localStorage.removeItem('authRedirectPath') // Clean up if error occurs
     } finally {
       setLoading(false)
     }
   }
 
-  // Add useEffect to handle redirect result
+  // Enhanced useEffect to handle redirect result
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
@@ -102,17 +92,24 @@ const Login = () => {
           const token = await user.getIdToken()
           localStorage.setItem('authToken', token)
           
-          // Store the intended destination before redirect
-          const intendedPath = localStorage.getItem('authRedirectPath') || '/dashboard'
-          localStorage.removeItem('authRedirectPath') // Clean up
+          // Get the stored path from sessionStorage
+          const intendedPath = sessionStorage.getItem('authRedirectPath') || '/dashboard'
+          sessionStorage.removeItem('authRedirectPath')
+          sessionStorage.removeItem('authProvider')
           
           toast.success('Successfully logged in!')
           navigate(intendedPath, { replace: true })
         }
       } catch (error) {
         console.error('Redirect result error:', error)
-        toast.error(error.message)
+        if (error.code === 'auth/operation-not-supported-in-this-environment') {
+          toast.error('Please ensure pop-ups are enabled for this site')
+        } else {
+          toast.error('Login failed. Please try again.')
+        }
         localStorage.removeItem('authToken')
+      } finally {
+        setIsProcessingRedirect(false)
       }
     }
 
